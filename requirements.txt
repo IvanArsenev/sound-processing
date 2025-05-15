@@ -1,0 +1,4 @@
+pvporcupine
+pyaudio
+vosk
+sounddevice
