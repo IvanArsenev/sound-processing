@@ -1,11 +1,16 @@
-import pvporcupine
-import pyaudio
+"""
+Module for hot word recognition using Porcupine and subsequent speech recognition using Vosk.
+"""
+
 import struct
 import os
-import vosk
 import json
-import sounddevice as sd
 import logging
+
+import pvporcupine
+import pyaudio
+import vosk
+import sounddevice as sd
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,12 +23,14 @@ VOSK_MODEL_PATH = 'vosk-model-small-ru-0.22'
 
 
 def listen_for_hotword(porcupine, audio_stream):
+    """Listens to the audio stream and returns the result of processing the hotword."""
     pcm = audio_stream.read(porcupine.frame_length)
     pcm_data = struct.unpack_from('h' * porcupine.frame_length, pcm)
     return porcupine.process(pcm_data)
 
 
 def recognize_next_word(model):
+    """Recognizes speech after detecting a hot word."""
     logging.info('Listening for words in live mode...')
     with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16', channels=1) as stream:
         rec = vosk.KaldiRecognizer(model, 16000)
@@ -34,18 +41,19 @@ def recognize_next_word(model):
                 partial = json.loads(rec.PartialResult())
                 partial_text = partial.get('partial', '')
                 if partial_text:
-                    logging.info(f'Partial: {partial_text}')
+                    logging.info('Partial: %s', partial_text)
                 if len(partial_text) > 1:
                     break
 
 
 def main():
+    """The main function initializes all components and listens to the hotword."""
     logging.info('Check for files...')
     if not os.path.exists(CUSTOM_KEYWORD_PATH):
-        logging.error(f'The {CUSTOM_KEYWORD_PATH} file was not found.')
+        logging.error('The %s file was not found.', CUSTOM_KEYWORD_PATH)
         return
     if not os.path.exists(VOSK_MODEL_PATH):
-        logging.error(f'Vosk model not found on path {VOSK_MODEL_PATH}')
+        logging.error('Vosk model not found on path %s', VOSK_MODEL_PATH)
         return
     logging.info('Check for files...Done!')
     logging.info('Porcupine Initialization...')
