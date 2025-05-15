@@ -12,6 +12,7 @@ import pvporcupine
 import pyaudio
 import vosk
 import sounddevice as sd
+import wave
 
 from config import ACCESS_KEY
 
@@ -41,7 +42,7 @@ def listen_for_hotword(porcupine, audio_stream):
 
 
 def recognize_next_word(model):
-    """Recognizes speech after detecting a hot word."""
+    """Recognizes speech after detecting a hot word in live mode."""
     logging.info('Listening for words in live mode...')
     with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16', channels=1) as stream:
         rec = vosk.KaldiRecognizer(model, 16000)
@@ -55,6 +56,35 @@ def recognize_next_word(model):
                     logging.info('Partial: %s', partial_text)
                 if len(partial_text) > 1:
                     break
+
+
+def recognize_next_word_from_position(model, file_path, start_frame):
+    """Recognizes speech starting from a specific frame in a file."""
+    if not os.path.isfile(file_path):
+        logging.error('File not found: %s', file_path)
+        return
+
+    try:
+        with wave.open(file_path, 'rb') as wav_file:
+            if wav_file.getnchannels() != 1 or wav_file.getsampwidth() != 2 or wav_file.getframerate() != 16000:
+                logging.error('Audio file must be mono, 16-bit, and 16000 Hz')
+                return
+
+            wav_file.setpos(start_frame)
+            rec = vosk.KaldiRecognizer(model, 16000)
+
+            while True:
+                pcm = wav_file.readframes(8000)
+                if len(pcm) == 0:
+                    break
+                if rec.AcceptWaveform(pcm):
+                    result = json.loads(rec.Result())
+                    text = result.get('text', '')
+                    if text:
+                        logging.info('Recognized: %s', text)
+                        break
+    except Exception as e:
+        logging.error('Error processing file: %s', e)
 
 
 def run_live_mode():
@@ -103,11 +133,42 @@ def run_live_mode():
 
 
 def run_file_mode(path):
-    """Handle the file mode: check file existence and print file name."""
-    if os.path.isfile(path):
-        logging.error('File found: %s', path)
-    else:
+    """Handle the file mode: search for hotword and recognize next word."""
+    if not os.path.isfile(path):
         logging.error('File not found: %s', path)
+        return
+
+    logging.info('File found: %s', path)
+
+    porcupine = pvporcupine.create(
+        access_key=ACCESS_KEY,
+        keyword_paths=[CUSTOM_KEYWORD_PATH]
+    )
+    model = vosk.Model(VOSK_MODEL_PATH)
+
+    try:
+        with wave.open(path, 'rb') as wav_file:
+            if wav_file.getnchannels() != 1 or wav_file.getsampwidth() != 2 or wav_file.getframerate() != porcupine.sample_rate:
+                logging.error('Audio file must be mono, 16-bit, and %d Hz', porcupine.sample_rate)
+                return
+
+            logging.info('Analyzing audio for hotword...')
+            while True:
+                pcm = wav_file.readframes(porcupine.frame_length)
+                if len(pcm) == 0:
+                    break
+                pcm_data = struct.unpack_from("h" * porcupine.frame_length, pcm)
+                result = porcupine.process(pcm_data)
+
+                if result >= 0:
+                    logging.info('Hotword detected in file: %s', path)
+                    start_frame = wav_file.tell()
+                    recognize_next_word_from_position(model, path, start_frame)
+                    logging.info('Analyzing audio for hotword...')
+    except Exception as e:
+        logging.error('Error processing file: %s', e)
+    finally:
+        porcupine.delete()
 
 
 def main():
