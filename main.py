@@ -12,12 +12,13 @@ import pyaudio
 import vosk
 import sounddevice as sd
 
+from config import ACCESS_KEY
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-ACCESS_KEY = '6+HrlHyfpm+mwvSnz93sRH1oM+AfzOKrlsGVMlu5DgWYS6AErZa2lA=='
 CUSTOM_KEYWORD_PATH = './stones.ppn'
 VOSK_MODEL_PATH = 'vosk-model-small-ru-0.22'
 
