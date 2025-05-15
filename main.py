@@ -111,6 +111,7 @@ def run_file_mode(path):
 
 
 def main():
+    """Main function."""
     parser = argparse.ArgumentParser(
         description='Hotword recognition and speech recognition module.'
     )
