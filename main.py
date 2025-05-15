@@ -169,7 +169,7 @@ def run_file_mode(path):
                     start_frame = wav_file.tell()
                     recognize_next_word_from_position(model, path, start_frame)
                     logging.info('Analyzing audio for hotword...')
-    except (struct.error):
+    except struct.error:
         logging.info('File ended!')
     except (IOError, wave.Error, ValueError) as e:
         logging.error('Error processing file: %s', e)
