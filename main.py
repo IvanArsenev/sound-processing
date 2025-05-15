@@ -23,7 +23,16 @@ VOSK_MODEL_PATH = 'vosk-model-small-ru-0.22'
 
 
 def listen_for_hotword(porcupine, audio_stream):
-    """Listens to the audio stream and returns the result of processing the hotword."""
+    """
+    Listen to the audio stream and process audio frames to detect hotword.
+
+    Args:
+        porcupine: Porcupine hotword detection object.
+        audio_stream: Audio input stream.
+
+    Returns:
+        int: Index of detected hotword or -1 if none detected.
+    """
     pcm = audio_stream.read(porcupine.frame_length)
     pcm_data = struct.unpack_from('h' * porcupine.frame_length, pcm)
     return porcupine.process(pcm_data)
