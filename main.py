@@ -2,17 +2,17 @@
 Module for hot word recognition using Porcupine and subsequent speech recognition using Vosk.
 """
 
-import struct
-import os
+import argparse
 import json
 import logging
-import argparse
+import os
+import struct
+import wave
 
 import pvporcupine
 import pyaudio
-import vosk
 import sounddevice as sd
-import wave
+import vosk
 
 from config import ACCESS_KEY
 
@@ -66,7 +66,9 @@ def recognize_next_word_from_position(model, file_path, start_frame):
 
     try:
         with wave.open(file_path, 'rb') as wav_file:
-            if wav_file.getnchannels() != 1 or wav_file.getsampwidth() != 2 or wav_file.getframerate() != 16000:
+            if (wav_file.getnchannels() != 1 or
+                    wav_file.getsampwidth() != 2 or
+                    wav_file.getframerate() != 16000):
                 logging.error('Audio file must be mono, 16-bit, and 16000 Hz')
                 return
 
@@ -83,7 +85,7 @@ def recognize_next_word_from_position(model, file_path, start_frame):
                     if text:
                         logging.info('Recognized: %s', text)
                         break
-    except Exception as e:
+    except (IOError, wave.Error, ValueError) as e:
         logging.error('Error processing file: %s', e)
 
 
@@ -148,7 +150,9 @@ def run_file_mode(path):
 
     try:
         with wave.open(path, 'rb') as wav_file:
-            if wav_file.getnchannels() != 1 or wav_file.getsampwidth() != 2 or wav_file.getframerate() != porcupine.sample_rate:
+            if (wav_file.getnchannels() != 1 or
+                    wav_file.getsampwidth() != 2 or
+                    wav_file.getframerate() != porcupine.sample_rate):
                 logging.error('Audio file must be mono, 16-bit, and %d Hz', porcupine.sample_rate)
                 return
 
@@ -161,11 +165,13 @@ def run_file_mode(path):
                 result = porcupine.process(pcm_data)
 
                 if result >= 0:
-                    logging.info('Hotword detected in file: %s', path)
+                    logging.info('Hotword detected!')
                     start_frame = wav_file.tell()
                     recognize_next_word_from_position(model, path, start_frame)
                     logging.info('Analyzing audio for hotword...')
-    except Exception as e:
+    except (struct.error):
+        logging.info('File ended!')
+    except (IOError, wave.Error, ValueError) as e:
         logging.error('Error processing file: %s', e)
     finally:
         porcupine.delete()
