@@ -1,3 +1,7 @@
+"""
+Module for hot word recognition using Porcupine and subsequent speech recognition using Vosk.
+"""
+
 import struct
 import os
 import json
@@ -101,14 +105,15 @@ def run_live_mode():
 def run_file_mode(path):
     """Handle the file mode: check file existence and print file name."""
     if os.path.isfile(path):
-        logging.info(f'File found: {path}')
-        print(f'File to process: {path}')
+        logging.error('File found: %s', path)
     else:
-        logging.error(f'File not found: {path}')
+        logging.error('File not found: %s', path)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Hotword recognition and speech recognition module.')
+    parser = argparse.ArgumentParser(
+        description='Hotword recognition and speech recognition module.'
+    )
     parser.add_argument(
         '--mode',
         choices=['live', 'file'],
