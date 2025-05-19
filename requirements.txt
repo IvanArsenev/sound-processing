@@ -2,3 +2,5 @@ pvporcupine
 pyaudio
 vosk
 sounddevice
+pydub
+requests

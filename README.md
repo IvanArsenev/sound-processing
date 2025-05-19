@@ -11,6 +11,11 @@ This project provides a robust solution for hotword detection using Porcupine fo
 
 ## 🛠️ Installation
 
+0. Install FFmpeg:
+```
+https://ffmpeg.org/download.html
+```
+
 1. Clone the repository:
 ```
 git clone https://github.com/IvanArsenev/sound-processing
@@ -47,11 +52,16 @@ python main.py --mode=live
 python main.py --mode=file --path=./message.wav
 ```
 
+### Radio Mode (Broadcast listening)
+```
+python main.py --mode=radio
+```
+
 ## ⚙️ Parameters
 
-| Parameter | Description | Required |
-|-----------|-------------|----------|
-| `--mode` | Operation mode: `live` or `file` | Yes |
+| Parameter | Description                                 | Required |
+|-----------|---------------------------------------------|----------|
+| `--mode` | Operation mode: `live`, `radio` or `file`   | Yes |
 | `--path` | Path to audio file (required for file mode) | Only in file mode |
 
 ## 🔧 Configuration
