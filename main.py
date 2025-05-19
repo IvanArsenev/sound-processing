@@ -157,8 +157,8 @@ def run_radio_mode():
                     recognize_word_in_chunk(vosk_model, audio_data)
 
                 play(audio_segment)
-            except (IOError, struct.error, ValueError) as E:
-                logging.info('Error processing audio chunk: %s', E)
+            except (IOError, struct.error, ValueError) as err:
+                logging.info('Error processing audio chunk: %s', err)
 
         for chunk in response.iter_content(chunk_size=1024):
             if not chunk:
@@ -171,7 +171,7 @@ def run_radio_mode():
                 start_time = time.time()
 
     except requests.RequestException as e:
-        logging.info(f'Error connecting to radio stream: {e}')
+        logging.info('Error connecting to radio stream: %s', e)
     finally:
         if 'porcupine' in locals():
             porcupine.delete()
