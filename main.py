@@ -7,9 +7,10 @@ import json
 import logging
 import os
 import time
-import requests
 import struct
 import wave
+from io import BytesIO
+import requests
 
 import pvporcupine
 import pyaudio
@@ -17,7 +18,6 @@ import sounddevice as sd
 import vosk
 from pydub import AudioSegment
 from pydub.playback import play
-from io import BytesIO
 
 from config import ACCESS_KEY
 
@@ -117,16 +117,20 @@ def recognize_word_in_chunk(model, audio_chunk):
     if rec.AcceptWaveform(audio_chunk):
         result = json.loads(rec.Result())
         recognized_text = result.get('text', '')
-        logging.info(f'Recognized: {recognized_text}')
+        logging.info('Recognized: %s', recognized_text)
         return recognized_text
-    else:
-        partial = json.loads(rec.PartialResult())
-        partial_text = partial.get('partial', '')
-        logging.info(f'Partial: {partial_text}')
-        return partial_text
+    partial = json.loads(rec.PartialResult())
+    partial_text = partial.get('partial', '')
+    logging.info('Partial: %s', partial_text)
+    return partial_text
 
 
 def run_radio_mode():
+    """Run the original broadcast hotword listening and recognition loop."""
+    porcupine = pvporcupine.create(
+        access_key=ACCESS_KEY,
+        keyword_paths=[CUSTOM_KEYWORD_PATH]
+    )
     try:
         response = requests.get(RADIO_URL, stream=True)
         response.raise_for_status()
@@ -135,39 +139,42 @@ def run_radio_mode():
         start_time = time.time()
         vosk_model = vosk.Model(VOSK_MODEL_PATH)
 
+        def process_audio_chunk(buffer):
+            """Process a single audio chunk for hotword detection."""
+            try:
+                buffer.seek(0)
+                audio_segment = AudioSegment.from_file(buffer, format='mp3')
+                audio_data = audio_segment.raw_data
+
+                pcm_data = struct.unpack_from(
+                    'h' * porcupine.frame_length,
+                    audio_data[:porcupine.frame_length * 2]
+                )
+                result = porcupine.process(pcm_data)
+                logging.info('Listening for hotword in audio chunk...')
+                if result >= 0:
+                    logging.info('Hotword detected! Recognizing next word in chunk...')
+                    recognize_word_in_chunk(vosk_model, audio_data)
+
+                play(audio_segment)
+            except (IOError, struct.error, ValueError) as E:
+                logging.info('Error processing audio chunk: %s', E)
+
         for chunk in response.iter_content(chunk_size=1024):
-            if chunk:
-                audio_buffer.write(chunk)
-                if audio_buffer.tell() >= BUFFER_SIZE or time.time() - start_time >= BUFFER_TIME:
-                    audio_buffer.seek(0)
-                    try:
-                        audio_segment = AudioSegment.from_file(audio_buffer, format='mp3')
-                        audio_data = audio_segment.raw_data
+            if not chunk:
+                continue
 
-                        porcupine = pvporcupine.create(
-                            access_key=ACCESS_KEY,
-                            keyword_paths=[CUSTOM_KEYWORD_PATH]
-                        )
-                        pcm_data = struct.unpack_from(
-                            'h' * porcupine.frame_length,
-                            audio_data[:porcupine.frame_length * 2]
-                        )
-                        result = porcupine.process(pcm_data)
-                        logging.info('Listening for hotword in audio chunk...')
-                        if result >= 0:
-                            logging.info('Hotword detected! Recognizing next word in chunk...')
-                            recognize_word_in_chunk(vosk_model, audio_data)
-
-                        play(audio_segment)
-
-                    except Exception as e:
-                        logging.info(f'Error processing audio chunk: {e}')
-
-                    audio_buffer = BytesIO()
-                    start_time = time.time()
+            audio_buffer.write(chunk)
+            if audio_buffer.tell() >= BUFFER_SIZE or time.time() - start_time >= BUFFER_TIME:
+                process_audio_chunk(audio_buffer)
+                audio_buffer = BytesIO()
+                start_time = time.time()
 
     except requests.RequestException as e:
         logging.info(f'Error connecting to radio stream: {e}')
+    finally:
+        if 'porcupine' in locals():
+            porcupine.delete()
 
 
 def recognize_next_word_from_position(model, file_path, start_frame):
